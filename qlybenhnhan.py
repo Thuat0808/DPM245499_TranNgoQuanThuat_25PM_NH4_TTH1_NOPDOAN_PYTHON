@@ -2,7 +2,18 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import sqlite3
 
-# --- 1. Khởi tạo cơ sở dữ liệu ---
+
+def center_window(win, width=900, height=650):
+    win.update_idletasks()
+    screen_width = win.winfo_screenwidth()
+    screen_height = win.winfo_screenheight()
+
+    x = (screen_width // 2) - (width // 2)
+    y = (screen_height // 2) - (height // 2)
+
+    win.geometry(f"{width}x{height}+{x}+{y}")
+
+
 def connect_db():
     conn = sqlite3.connect('quan_ly_benh_nhan.db')
     cursor = conn.cursor()
@@ -23,8 +34,6 @@ def connect_db():
     conn.commit()
     return conn, cursor
 
-
-# --- 2. Class Ứng dụng ---
 class PatientManagerApp:
     def __init__(self, master):
         self.master = master
@@ -43,7 +52,6 @@ class PatientManagerApp:
 
         self.load_data()
 
-    # --- TẠO FORM NHẬP LIỆU ---
     def _create_input_fields(self):
         fields = [
             ("Mã BN", "ma_bn", 0, 0, 0, 1),
@@ -66,7 +74,6 @@ class PatientManagerApp:
                 combo.grid(row=er, column=ec, sticky='w', padx=5, pady=5)
                 combo.set("Nam")
                 self.entries[name] = combo
-
             else:
                 entry = tk.Entry(self.input_frame, width=33)
                 entry.grid(row=er, column=ec, sticky='w', padx=5, pady=5)
@@ -75,25 +82,24 @@ class PatientManagerApp:
         self.input_frame.grid_columnconfigure(1, weight=1)
         self.input_frame.grid_columnconfigure(3, weight=1)
 
-
-    # --- TẠO NÚT CHỨC NĂNG ---
     def _create_action_buttons(self):
         row_btn = 5
 
-        ttk.Button(self.input_frame, text="Thêm", command=self.add_patient).grid(row=row_btn, column=0, pady=15)
         ttk.Button(self.input_frame, text="Cập nhật", command=self.update_patient).grid(row=row_btn, column=1, sticky='w')
 
-        ttk.Button(self.input_frame, text="Xóa", command=self.delete_patient).grid(row=row_btn, column=1, padx=70, sticky='w')
+        ttk.Button(self.input_frame, text="Xóa", command=self.delete_patient).grid(row=row_btn, column=1, padx=80, sticky='w')
         ttk.Button(self.input_frame, text="Làm mới", command=self.clear_fields).grid(row=row_btn, column=1, padx=140, sticky='w')
+
+        ttk.Button(self.input_frame, text="Xuất Excel", command=self.export_excel).grid(row=row_btn, column=0, padx=90, sticky='w')
 
         tk.Label(self.input_frame, text="Tìm kiếm:").grid(row=row_btn, column=2, sticky='e')
         self.search_entry = tk.Entry(self.input_frame, width=18)
         self.search_entry.grid(row=row_btn, column=3, sticky='w')
         ttk.Button(self.input_frame, text="Tìm", command=self.search_data).grid(row=row_btn, column=3, padx=90, sticky='w')
         ttk.Button(self.input_frame, text="Tải tất cả", command=self.load_data).grid(row=row_btn, column=3, padx=150, sticky='w')
+        ttk.Button(self.input_frame, text="Thêm", command=self.add_patient)\
+        .grid(row=row_btn, column=0, pady=10, padx=5, sticky='w')
 
-
-    # --- TẠO BẢNG TREEVIEW ---
     def _create_table_view(self):
         self.table_frame = tk.Frame(self.master)
         self.table_frame.pack(fill='both', expand=True, padx=10, pady=10)
@@ -106,16 +112,8 @@ class PatientManagerApp:
         for col in columns:
             self.tree.heading(col, text=col.upper())
 
-        self.tree.column("id", width=40, anchor='center')
-        self.tree.column("ma_bn", width=80, anchor='center')
-        self.tree.column("ho_ten", width=150)
-        self.tree.column("gioi_tinh", width=70, anchor='center')
-        self.tree.column("ngay_sinh", width=100)
-        self.tree.column("so_dt", width=100)
-        self.tree.column("dia_chi", width=150)
-        self.tree.column("chan_doan", width=120)
-        self.tree.column("ngay_nhap_vien", width=120)
-        self.tree.column("ghi_chu", width=150)
+        for col in columns:
+            self.tree.column(col, anchor='center', width=120)
 
         vsb = ttk.Scrollbar(self.table_frame, orient="vertical", command=self.tree.yview)
         hsb = ttk.Scrollbar(self.table_frame, orient="horizontal", command=self.tree.xview)
@@ -128,18 +126,13 @@ class PatientManagerApp:
 
         self.tree.bind("<<TreeviewSelect>>", self.on_select_item)
 
-
-    # --- CRUD ---
     def load_data(self):
         for item in self.tree.get_children():
             self.tree.delete(item)
 
         self.cursor.execute("SELECT * FROM benh_nhan")
-        rows = self.cursor.fetchall()
-
-        for row in rows:
+        for row in self.cursor.fetchall():
             self.tree.insert("", tk.END, values=row)
-
 
     def add_patient(self):
         data = [
@@ -155,7 +148,7 @@ class PatientManagerApp:
         ]
 
         if not data[0] or not data[1]:
-            messagebox.showerror("Lỗi", "Mã BN và Họ & tên không được để trống!")
+            messagebox.showerror("Lỗi", "Mã BN và Họ tên không được để trống!")
             return
 
         try:
@@ -171,11 +164,10 @@ class PatientManagerApp:
         except Exception as e:
             messagebox.showerror("Lỗi", str(e))
 
-
     def update_patient(self):
         selected_item = self.tree.focus()
         if not selected_item:
-            messagebox.showerror("Lỗi", "Vui lòng chọn bệnh nhân cần cập nhật.")
+            messagebox.showerror("Lỗi", "Vui lòng chọn dòng cần cập nhật.")
             return
 
         record_id = self.tree.item(selected_item)["values"][0]
@@ -193,30 +185,29 @@ class PatientManagerApp:
             record_id
         ]
 
-        set_clause = """
-            ma_bn=?, ho_ten=?, gioi_tinh=?, ngay_sinh=?, so_dt=?,
-            dia_chi=?, chan_doan=?, ngay_nhap_vien=?, ghi_chu=?
-        """
-
         try:
-            self.cursor.execute(f"UPDATE benh_nhan SET {set_clause} WHERE id=?", data)
+            self.cursor.execute("""
+                UPDATE benh_nhan 
+                SET ma_bn=?, ho_ten=?, gioi_tinh=?, ngay_sinh=?, so_dt=?, 
+                    dia_chi=?, chan_doan=?, ngay_nhap_vien=?, ghi_chu=?
+                WHERE id=?
+            """, data)
             self.conn.commit()
             self.load_data()
             self.clear_fields()
-            messagebox.showinfo("Thành công", "Đã cập nhật thông tin.")
+            messagebox.showinfo("Thành công", "Đã cập nhật.")
         except Exception as e:
             messagebox.showerror("Lỗi", str(e))
-
 
     def delete_patient(self):
         selected_item = self.tree.focus()
         if not selected_item:
-            messagebox.showerror("Lỗi", "Vui lòng chọn bệnh nhân cần xóa.")
+            messagebox.showerror("Lỗi", "Vui lòng chọn dòng để xóa.")
             return
 
         record_id = self.tree.item(selected_item)["values"][0]
 
-        if messagebox.askyesno("Xác nhận", "Bạn có chắc muốn xóa?"):
+        if messagebox.askyesno("Xác nhận", "Bạn chắc muốn xóa?"):
             try:
                 self.cursor.execute("DELETE FROM benh_nhan WHERE id=?", (record_id,))
                 self.conn.commit()
@@ -226,19 +217,14 @@ class PatientManagerApp:
             except Exception as e:
                 messagebox.showerror("Lỗi", str(e))
 
-
     def search_data(self):
         keyword = self.search_entry.get()
-        if not keyword:
-            self.load_data()
-            return
 
-        query = """
+        self.cursor.execute("""
             SELECT * FROM benh_nhan
             WHERE ho_ten LIKE ? OR ma_bn LIKE ?
-        """
+        """, ('%' + keyword + '%', '%' + keyword + '%'))
 
-        self.cursor.execute(query, ('%' + keyword + '%', '%' + keyword + '%'))
         rows = self.cursor.fetchall()
 
         for item in self.tree.get_children():
@@ -247,7 +233,6 @@ class PatientManagerApp:
         for row in rows:
             self.tree.insert("", tk.END, values=row)
 
-
     def clear_fields(self):
         for key, widget in self.entries.items():
             if key == "gioi_tinh":
@@ -255,30 +240,53 @@ class PatientManagerApp:
             else:
                 widget.delete(0, tk.END)
 
-
     def on_select_item(self, event):
         selected = self.tree.focus()
         if not selected:
             return
 
         values = self.tree.item(selected)["values"]
-        if not values:
-            return
-
         keys = ["ma_bn", "ho_ten", "gioi_tinh", "ngay_sinh", "so_dt",
                 "dia_chi", "chan_doan", "ngay_nhap_vien", "ghi_chu"]
 
         for i, key in enumerate(keys):
             widget = self.entries[key]
-            widget.delete(0, tk.END) if key != "gioi_tinh" else None
             if key == "gioi_tinh":
                 widget.set(values[i + 1])
             else:
+                widget.delete(0, tk.END)
                 widget.insert(0, values[i + 1])
 
+    def export_excel(self):
+        try:
+            import openpyxl
+            from openpyxl.styles import Alignment
 
-# --- 3. Chạy ứng dụng ---
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Danh sách bệnh nhân"
+
+            columns = ("ID", "Mã BN", "Họ tên", "Giới tính", "Ngày sinh", "SĐT",
+                       "Địa chỉ", "Chẩn đoán", "Ngày nhập viện", "Ghi chú")
+            ws.append(columns)
+
+            for row_id in self.tree.get_children():
+                row = self.tree.item(row_id)['values']
+                ws.append(row)
+
+            for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=10):
+                for cell in row:
+                    cell.alignment = Alignment(horizontal="center", vertical="center")
+
+            wb.save("danh_sach_benh_nhan.xlsx")
+            messagebox.showinfo("Thành công", "Xuất Excel thành công!")
+
+        except Exception as e:
+            messagebox.showerror("Lỗi", str(e))
+
 if __name__ == "__main__":
     root = tk.Tk()
+    center_window(root, 900, 650)  
     app = PatientManagerApp(root)
     root.mainloop()
+ 
